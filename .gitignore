@@ -218,3 +218,5 @@ __marimo__/
 .streamlit/secrets.toml
 .idea
 /weights.json
+/weights_ru.json
+weights_*.json

@@ -1,9 +1,7 @@
+import argparse
 import json
 import re
 import sys
-
-DATA_PATH = "data/names.json"
-CYRILLIC_RE = re.compile(r"^[а-яё]+$")
 
 
 def load(path):
@@ -11,11 +9,16 @@ def load(path):
         return json.load(f)
 
 
-def check_non_cyrillic(data):
+def build_regex(alphabet):
+    chars = alphabet.replace("_", "")
+    return re.compile(f"^[{re.escape(chars)}]+$")
+
+
+def check_alphabet(data, pattern):
     bad = []
     for gender in ("female", "male"):
         for name in data[gender]:
-            if not CYRILLIC_RE.match(name):
+            if not pattern.match(name):
                 bad.append((gender, name))
     return bad
 
@@ -40,19 +43,30 @@ def check_cross_duplicates(data):
     return sorted(female & male)
 
 
-def main():
-    data = load(DATA_PATH)
+def parse_args():
+    parser = argparse.ArgumentParser(description="Validate a names dataset")
+    parser.add_argument("--data", required=True, help="path to dataset JSON")
+    return parser.parse_args()
 
+
+def main():
+    args = parse_args()
+    data = load(args.data)
+    alphabet = data["alphabet"]
+    pattern = build_regex(alphabet)
+
+    print(f"File: {args.data}")
+    print(f"Alphabet size: {len(alphabet)}")
     print(f"Loaded {len(data['female'])} female and {len(data['male'])} male names")
     print()
 
-    bad = check_non_cyrillic(data)
+    bad = check_alphabet(data, pattern)
     if bad:
-        print("Non-Cyrillic names found:")
+        print("Names with characters outside the alphabet:")
         for gender, name in bad:
             print(f"  [{gender}] {name!r}")
     else:
-        print("Cyrillic check: OK")
+        print("Alphabet check: OK")
 
     duplicates = check_duplicates(data)
     any_duplicates = False
@@ -75,6 +89,9 @@ def main():
 
     if bad or any_duplicates or cross:
         sys.exit(1)
+
+    print()
+    print("All checks passed.")
 
 
 if __name__ == "__main__":

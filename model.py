@@ -2,12 +2,8 @@ import json
 import math
 import random
 
-ALPHABET = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя_"
-CHAR_TO_IDX = {c: i for i, c in enumerate(ALPHABET)}
-ALPHA_SIZE = len(ALPHABET)
 MAX_LEN = 12
 HIDDEN_SIZE = 40
-INPUT_SIZE = 2 * MAX_LEN * ALPHA_SIZE + ALPHA_SIZE * ALPHA_SIZE
 
 
 def sigmoid(z):
@@ -18,51 +14,57 @@ def sigmoid(z):
     return 1 / (1 + math.exp(-z))
 
 
-def suffix_idx(name):
-    s = name.lower()
-    a = CHAR_TO_IDX.get(s[-2], 0) if len(s) >= 2 else 0
-    b = CHAR_TO_IDX.get(s[-1], 0) if len(s) >= 1 else 0
-    return a * ALPHA_SIZE + b
-
-
-def encode_sparse(name):
-    name = name.lower()
-    n = len(name)
-    out = []
-
-    for pos, ch in enumerate(name[:MAX_LEN]):
-        idx = CHAR_TO_IDX.get(ch, CHAR_TO_IDX["_"])
-        out.append((pos * ALPHA_SIZE + idx, 1.0))
-
-    for k in range(1, MAX_LEN + 1):
-        ch = name[-k] if k <= n else "_"
-        idx = CHAR_TO_IDX.get(ch, CHAR_TO_IDX["_"])
-        offset = MAX_LEN * ALPHA_SIZE + (k - 1) * ALPHA_SIZE
-        out.append((offset + idx, 1.0))
-
-    suffix_offset = 2 * MAX_LEN * ALPHA_SIZE
-    out.append((suffix_offset + suffix_idx(name), 1.0))
-
-    return out
-
-
 class NameNet:
-    def __init__(self, seed=42):
+    def __init__(self, alphabet, seed=42):
+        self.alphabet = alphabet
+        self.char_to_idx = {c: i for i, c in enumerate(alphabet)}
+        self.alpha_size = len(alphabet)
+        self.max_len = MAX_LEN
+        self.hidden_size = HIDDEN_SIZE
+        self.input_size = 2 * MAX_LEN * self.alpha_size + self.alpha_size ** 2
+
         random.seed(seed)
         self.W1 = [
-            [random.uniform(-1, 1) / math.sqrt(INPUT_SIZE) for _ in range(INPUT_SIZE)]
-            for _ in range(HIDDEN_SIZE)
+            [random.uniform(-1, 1) / math.sqrt(self.input_size)
+             for _ in range(self.input_size)]
+            for _ in range(self.hidden_size)
         ]
-        self.B1 = [0.0] * HIDDEN_SIZE
+        self.B1 = [0.0] * self.hidden_size
         self.W2 = [
-            random.uniform(-1, 1) / math.sqrt(HIDDEN_SIZE)
-            for _ in range(HIDDEN_SIZE)
+            random.uniform(-1, 1) / math.sqrt(self.hidden_size)
+            for _ in range(self.hidden_size)
         ]
         self.B2 = 0.0
 
+    def suffix_idx(self, name):
+        s = name.lower()
+        a = self.char_to_idx.get(s[-2], 0) if len(s) >= 2 else 0
+        b = self.char_to_idx.get(s[-1], 0) if len(s) >= 1 else 0
+        return a * self.alpha_size + b
+
+    def encode_sparse(self, name):
+        name = name.lower()
+        n = len(name)
+        out = []
+        pad = self.char_to_idx["_"]
+
+        for pos, ch in enumerate(name[:self.max_len]):
+            idx = self.char_to_idx.get(ch, pad)
+            out.append((pos * self.alpha_size + idx, 1.0))
+
+        for k in range(1, self.max_len + 1):
+            ch = name[-k] if k <= n else "_"
+            idx = self.char_to_idx.get(ch, pad)
+            offset = self.max_len * self.alpha_size + (k - 1) * self.alpha_size
+            out.append((offset + idx, 1.0))
+
+        suffix_offset = 2 * self.max_len * self.alpha_size
+        out.append((suffix_offset + self.suffix_idx(name), 1.0))
+        return out
+
     def forward(self, x_sparse):
-        h = [0.0] * HIDDEN_SIZE
-        for i in range(HIDDEN_SIZE):
+        h = [0.0] * self.hidden_size
+        for i in range(self.hidden_size):
             Wi = self.W1[i]
             z = self.B1[i]
             for j, v in x_sparse:
@@ -70,10 +72,9 @@ class NameNet:
             h[i] = sigmoid(z)
 
         z_out = self.B2
-        for i in range(HIDDEN_SIZE):
+        for i in range(self.hidden_size):
             z_out += self.W2[i] * h[i]
         y = sigmoid(z_out)
-
         return h, y
 
     def train_step(self, x_sparse, target, lr):
@@ -81,7 +82,7 @@ class NameNet:
         error = target - y
         d_y = error * y * (1 - y)
 
-        for i in range(HIDDEN_SIZE):
+        for i in range(self.hidden_size):
             hi = h[i]
             d_hi = d_y * self.W2[i] * hi * (1 - hi)
             Wi = self.W1[i]
@@ -94,17 +95,17 @@ class NameNet:
         return error * error
 
     def predict(self, name):
-        x_sparse = encode_sparse(name)
+        x_sparse = self.encode_sparse(name)
         _, y = self.forward(x_sparse)
         label = "female" if y > 0.5 else "male"
         return label, y
 
     def save(self, path):
         data = {
-            "alphabet": ALPHABET,
-            "max_len": MAX_LEN,
-            "hidden_size": HIDDEN_SIZE,
-            "input_size": INPUT_SIZE,
+            "alphabet": self.alphabet,
+            "max_len": self.max_len,
+            "hidden_size": self.hidden_size,
+            "input_size": self.input_size,
             "W1": self.W1,
             "B1": self.B1,
             "W2": self.W2,
@@ -118,14 +119,17 @@ class NameNet:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        if (
-            data["alphabet"] != ALPHABET
-            or data["max_len"] != MAX_LEN
-            or data["hidden_size"] != HIDDEN_SIZE
-        ):
-            raise ValueError("weights.json is incompatible with current model")
+        alphabet = data["alphabet"]
+        if data["max_len"] != MAX_LEN or data["hidden_size"] != HIDDEN_SIZE:
+            raise ValueError("weights file is incompatible with current model")
 
         net = cls.__new__(cls)
+        net.alphabet = alphabet
+        net.char_to_idx = {c: i for i, c in enumerate(alphabet)}
+        net.alpha_size = len(alphabet)
+        net.max_len = data["max_len"]
+        net.hidden_size = data["hidden_size"]
+        net.input_size = data["input_size"]
         net.W1 = data["W1"]
         net.B1 = data["B1"]
         net.W2 = data["W2"]

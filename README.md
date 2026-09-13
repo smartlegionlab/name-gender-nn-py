@@ -1,14 +1,36 @@
 # name-gender-nn
 
-**name-gender-nn** — gender classifier for Russian first names.
+**name-gender-nn** — gender classifier for first names.
 `nn` stands for **neural network**. A small fully connected network
-written in pure Python, no dependencies.
+written in pure Python, no dependencies. Multilingual: train on any
+dataset with its own alphabet.
 
 ## What it does
 
-Determines whether a Russian first name is male or female.
-Works with full forms: `александр` → male, `анастасия` → female.
-Also generalizes to names it was never trained on (`сара`, `мара`, `федот`).
+Determines whether a first name is male or female. Ships with two
+datasets:
+
+- Russian (`data/names_ru.json`) — Cyrillic alphabet, 108 names
+- English (`data/names_en.json`) — Latin alphabet, 100 names
+
+Each dataset defines its own alphabet. You train a separate model per
+dataset, and each model works only with names from its own alphabet.
+
+## Scope and limitations
+
+The models are trained on **full name forms** (`александр`, `екатерина`,
+`alexander`, `elizabeth`). Diminutive and hypocoristic forms
+(`коля`, `соня`, `катя` in Russian; `kate`, `bob`, `liz` in English)
+are **not** in the datasets and are outside the intended use case.
+
+In a sanity check on such forms, the Russian model got 1 out of 3
+correct and the English model got 2 out of 3 correct — by coincidence
+of letter patterns, not by knowledge. Do not rely on these models for
+diminutive forms.
+
+Adding diminutive forms is possible: extend the datasets and retrain.
+But this requires a balanced addition (both male and female forms),
+otherwise the model degrades.
 
 ## Requirements
 
@@ -20,51 +42,160 @@ Python 3.8+. Standard library only. No virtual environment needed.
 git clone https://github.com/smartlegionlab/name-gender-nn.git
 cd name-gender-nn
 
-# train the model (creates weights.json, takes ~40 seconds)
-python train.py
+# train the Russian model (~40 seconds)
+python train.py --data data/names_ru.json --out weights_ru.json
 
-# run the classifier
-python predict.py
+# run it
+python predict.py --weights weights_ru.json
 ```
 
 Example session:
 
 ```
 Enter a name (or 'exit' to quit):
-> александр
-александр -> male  (confidence 99.7%)
-> евгения
-евгения -> female  (confidence 99.8%)
-> сара
-сара -> female  (confidence 86.1%)
+> анна
+анна -> female  (confidence 99.8%)
+> дмитрий
+дмитрий -> male  (confidence 100.0%)
+> ольга
+ольга -> female  (confidence 99.5%)
 > exit
 ```
 
 Or as a one-liner:
 
 ```bash
-python predict.py александр
+python predict.py --weights weights_ru.json александр
+# александр -> male  (confidence 99.7%)
 ```
 
-## Validate the dataset
+## Train the English model
 
 ```bash
-python check_data.py
+python train.py --data data/names_en.json --out weights_en.json
+python predict.py --weights weights_en.json
+```
+
+Example session:
+
+```
+Enter a name (or 'exit' to quit):
+> mary
+mary -> female  (confidence 99.0%)
+> john
+john -> male  (confidence 100.0%)
+> elizabeth
+elizabeth -> female  (confidence 99.7%)
+> exit
+```
+
+One-liner:
+
+```bash
+python predict.py --weights weights_en.json alexander
+# alexander -> male  (confidence 99.8%)
+```
+
+## Validate a dataset
+
+```bash
+python check_data.py --data data/names_ru.json
+python check_data.py --data data/names_en.json
+```
+
+Output for the Russian dataset:
+
+```
+File: data/names_ru.json
+Alphabet size: 34
+Loaded 49 female and 59 male names
+
+Alphabet check: OK
+Duplicate check: OK
+Cross-gender check: OK
+
+All checks passed.
 ```
 
 This checks:
-- all names are pure Cyrillic
+- all names use only characters from the dataset alphabet
 - no duplicates inside each list
 - no name appears in both `female` and `male`
+
+## Training output
+
+Russian dataset:
+
+```
+Loaded 108 names from data/names_ru.json
+Alphabet size: 34
+epoch     0  error=13.357281  t=0.0s
+epoch   500  error=0.019567  t=2.6s
+...
+epoch  7500  error=0.000808  t=38.6s
+
+Train accuracy: 108/108 = 100.0%
+Weights saved to weights_ru.json
+Total time: 41.2s
+```
+
+English dataset:
+
+```
+Loaded 100 names from data/names_en.json
+Alphabet size: 27
+epoch     0  error=13.525733  t=0.0s
+epoch   500  error=0.030255  t=2.4s
+...
+epoch  7500  error=0.001139  t=35.9s
+
+Train accuracy: 100/100 = 100.0%
+Weights saved to weights_en.json
+Total time: 38.3s
+```
+
+## Sanity check
+
+Inputs from the datasets:
+
+```
+анна      -> female  (confidence 99.8%)
+дмитрий   -> male    (confidence 100.0%)
+ольга     -> female  (confidence 99.5%)
+mary      -> female  (confidence 99.0%)
+john      -> male    (confidence 100.0%)
+elizabeth -> female  (confidence 99.7%)
+```
+
+Inputs not in the datasets (full forms):
+
+```
+сара      -> female  (confidence 86.1%)
+мара      -> female  (confidence 94.4%)
+федот     -> male    (confidence 95.6%)
+karl      -> male    (confidence 93.5%)
+```
+
+Diminutive forms (out of scope, see Scope above):
+
+```
+коля      -> male    (confidence 91.7%)   correct by coincidence
+соня      -> male    (confidence 53.9%)   wrong
+катя      -> male    (confidence 96.3%)   wrong
+kate      -> female  (confidence 98.1%)   correct by coincidence
+bob       -> male    (confidence 96.3%)   correct by coincidence
+liz       -> male    (confidence 96.7%)   wrong
+```
 
 ## Project layout
 
 ```
 name-gender-nn/
 ├── data/
-│   └── names.json      # dataset: female and male names
-├── model.py            # network architecture (forward, backward, save/load)
-├── train.py            # training -> writes weights.json
+│   ├── names_ru.json   # Russian dataset (Cyrillic)
+│   └── names_en.json   # English dataset (Latin)
+├── model.py            # network architecture
+├── train.py            # training -> writes weights file
 ├── predict.py          # CLI: input name -> gender
 ├── check_data.py       # dataset validation
 ├── LICENSE             # BSD 3-Clause License
@@ -72,41 +203,58 @@ name-gender-nn/
 └── README.md
 ```
 
-`weights.json` is generated by `train.py` and is not tracked by git.
+`weights_*.json` files are generated by `train.py` and are not tracked
+by git.
 
 ## How it works
 
+- **Alphabet.** Each dataset defines its own alphabet as a string of
+  characters plus a `_` pad character. The Russian dataset uses the
+  33-letter Cyrillic alphabet; the English dataset uses the 26-letter
+  Latin alphabet.
 - **Features.** Each name is split into three blocks: letters from the
   start, letters from the end, and the 2-letter suffix. Every character
-  is one-hot encoded over the Russian alphabet (33 letters + `_`).
+  is one-hot encoded over the dataset alphabet.
 - **Model.** Fully connected: input -> hidden layer (40 neurons,
   sigmoid) -> output (1 neuron, sigmoid). Trained with SGD, `lr = 0.1`,
   8000 epochs.
-- **Data.** 108 full names (49 female, 59 male). Training takes
-  ~40 seconds on a typical CPU.
-- **Accuracy.** 100% on the training set. On a held-out set of
-  29 full Russian names (never seen during training) — 29/29 correct.
-  Accuracy may drop on diminutive forms (`сашка`, `женька`) and
-  non-Russian names (`мигель`).
+- **Data.** Russian: 108 names (49 female, 59 male). English: 100 names
+  (50 female, 50 male). Training takes ~40 seconds on a typical CPU.
+- **Accuracy.** 100% on the training set for both datasets.
 
 ## Adding names
 
-Open `data/names.json` and add a name to either `female` or `male`:
+Open the dataset file you want to extend and add a name to either
+`female` or `male`:
 
 ```json
 {
+  "alphabet": "абвгдеёжзийклмнопрстуфхцчшщъыьэюя_",
   "female": ["анна", "...", "александра"],
   "male":   ["иван", "...", "александр"]
 }
 ```
 
-Then retrain:
+Then retrain that dataset:
 
 ```bash
-python train.py
+python train.py --data data/names_ru.json --out weights_ru.json
 ```
 
 No code changes needed.
+
+## Adding a new language
+
+Create `data/names_XX.json` with the correct alphabet and name lists,
+then train:
+
+```bash
+python train.py --data data/names_XX.json --out weights_XX.json
+python predict.py --weights weights_XX.json
+```
+
+The model reads the alphabet from the dataset, so any language with a
+single-alphabet script works out of the box.
 
 ## Author
 

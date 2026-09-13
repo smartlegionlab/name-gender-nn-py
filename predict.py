@@ -1,8 +1,7 @@
+import argparse
 import sys
 
 from model import NameNet
-
-WEIGHTS_PATH = "weights.json"
 
 
 def read_line(prompt="> "):
@@ -14,18 +13,27 @@ def read_line(prompt="> "):
     return raw.decode("utf-8", errors="replace").strip()
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Predict gender from a name")
+    parser.add_argument("--weights", required=True, help="path to weights JSON")
+    parser.add_argument("name", nargs="*", help="name to classify (optional)")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+
     try:
-        net = NameNet.load(WEIGHTS_PATH)
+        net = NameNet.load(args.weights)
     except FileNotFoundError:
-        print(f"File {WEIGHTS_PATH} not found. Run: python train.py")
+        print(f"File {args.weights} not found. Train it first.")
         sys.exit(1)
     except ValueError as e:
-        print(f"Error: {e}. Retrain the model: python train.py")
+        print(f"Error: {e}")
         sys.exit(1)
 
-    if len(sys.argv) > 1:
-        name = " ".join(sys.argv[1:])
+    if args.name:
+        name = " ".join(args.name)
         pred, prob = net.predict(name)
         print(f"{name} -> {pred}  (confidence {max(prob, 1 - prob):.1%})")
         return
