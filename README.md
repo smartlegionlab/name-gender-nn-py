@@ -1,4 +1,4 @@
-# name-gender-nn
+# name-gender-nn <sup>v0.0.2</sup>
 
 **name-gender-nn** — gender classifier for first names.
 `nn` stands for **neural network**. A small fully connected network
