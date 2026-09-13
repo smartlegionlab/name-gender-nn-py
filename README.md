@@ -1,4 +1,11 @@
-# name-gender-nn-py <sup>v0.0.3</sup>
+# name-gender-nn-py <sup>v0.1.0</sup>
+
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/smartlegionlab/name-gender-nn-py)](https://github.com/smartlegionlab/name-gender-nn-py)
+[![GitHub forks](https://img.shields.io/github/forks/smartlegionlab/name-gender-nn-py?style=social)](https://github.com/smartlegionlab/name-gender-nn-py/network/members)
+
+> Educational project. Not production-ready. Shows how a small
+> neural network works from scratch, without external ML libraries.
 
 **name-gender-nn-py** — gender classifier for first names.
 `nn` stands for **neural network**. A small fully connected network
