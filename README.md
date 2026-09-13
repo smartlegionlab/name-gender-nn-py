@@ -1,6 +1,6 @@
-# name-gender-nn <sup>v0.0.2</sup>
+# name-gender-nn-py <sup>v0.0.3</sup>
 
-**name-gender-nn** — gender classifier for first names.
+**name-gender-nn-py** — gender classifier for first names.
 `nn` stands for **neural network**. A small fully connected network
 written in pure Python, no dependencies. Multilingual: train on any
 dataset with its own alphabet.
@@ -19,18 +19,10 @@ dataset, and each model works only with names from its own alphabet.
 ## Scope and limitations
 
 The models are trained on **full name forms** (`александр`, `екатерина`,
-`alexander`, `elizabeth`). Diminutive and hypocoristic forms
-(`коля`, `соня`, `катя` in Russian; `kate`, `bob`, `liz` in English)
-are **not** in the datasets and are outside the intended use case.
-
-In a sanity check on such forms, the Russian model got 1 out of 3
-correct and the English model got 2 out of 3 correct — by coincidence
-of letter patterns, not by knowledge. Do not rely on these models for
-diminutive forms.
-
-Adding diminutive forms is possible: extend the datasets and retrain.
-But this requires a balanced addition (both male and female forms),
-otherwise the model degrades.
+`alexander`, `elizabeth`). Diminutive and hypocoristic forms are **not**
+in the datasets and are not supported. Extending the datasets with
+such forms is possible, but requires a balanced addition (both male
+and female) to avoid degrading accuracy.
 
 ## Requirements
 
@@ -39,8 +31,8 @@ Python 3.8+. Standard library only. No virtual environment needed.
 ## Clone and run
 
 ```bash
-git clone https://github.com/smartlegionlab/name-gender-nn.git
-cd name-gender-nn
+git clone https://github.com/smartlegionlab/name-gender-nn-py.git
+cd name-gender-nn-py
 
 # train the Russian model (~40 seconds)
 python train.py --data data/names_ru.json --out weights_ru.json
@@ -159,38 +151,27 @@ Total time: 38.3s
 Inputs from the datasets:
 
 ```
-анна      -> female  (confidence 99.8%)
-дмитрий   -> male    (confidence 100.0%)
-ольга     -> female  (confidence 99.5%)
-mary      -> female  (confidence 99.0%)
-john      -> male    (confidence 100.0%)
-elizabeth -> female  (confidence 99.7%)
+анна       -> female  (confidence 99.8%)
+дмитрий    -> male    (confidence 100.0%)
+ольга      -> female  (confidence 99.5%)
+mary       -> female  (confidence 99.0%)
+john       -> male    (confidence 100.0%)
+elizabeth  -> female  (confidence 99.7%)
 ```
 
-Inputs not in the datasets (full forms):
+Full forms not in the datasets:
 
 ```
-сара      -> female  (confidence 86.1%)
-мара      -> female  (confidence 94.4%)
-федот     -> male    (confidence 95.6%)
-karl      -> male    (confidence 93.5%)
-```
-
-Diminutive forms (out of scope, see Scope above):
-
-```
-коля      -> male    (confidence 91.7%)   correct by coincidence
-соня      -> male    (confidence 53.9%)   wrong
-катя      -> male    (confidence 96.3%)   wrong
-kate      -> female  (confidence 98.1%)   correct by coincidence
-bob       -> male    (confidence 96.3%)   correct by coincidence
-liz       -> male    (confidence 96.7%)   wrong
+сара       -> female  (confidence 86.1%)
+мара       -> female  (confidence 94.4%)
+федот      -> male    (confidence 95.6%)
+karl       -> male    (confidence 93.5%)
 ```
 
 ## Project layout
 
 ```
-name-gender-nn/
+name-gender-nn-py/
 ├── data/
 │   ├── names_ru.json   # Russian dataset (Cyrillic)
 │   └── names_en.json   # English dataset (Latin)
@@ -253,8 +234,13 @@ python train.py --data data/names_XX.json --out weights_XX.json
 python predict.py --weights weights_XX.json
 ```
 
-The model reads the alphabet from the dataset, so any language with a
-single-alphabet script works out of the box.
+The model reads the alphabet from the dataset, so the same code can be
+reused for other languages by providing a new dataset file.
+
+## Related projects
+
+- [name-gender-nn-rs](https://github.com/smartlegionlab/name-gender-nn-rs) —
+  Rust port. Same algorithm, same datasets, ~40× faster training.
 
 ## Author
 
